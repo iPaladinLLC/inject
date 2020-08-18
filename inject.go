@@ -38,6 +38,7 @@ import (
 // object graph.
 type Logger interface {
 	Debugf(format string, v ...interface{})
+	Warnf(format string, v ...interface{})
 }
 
 // Populate is a short-hand for populating a graph with the given incomplete
@@ -120,10 +121,17 @@ func (g *Graph) Provide(objects ...*Object) error {
 				}
 
 				if g.unnamedType[o.reflectType] {
-					return fmt.Errorf(
-						"provided two unnamed instances of type *%s.%s",
-						o.reflectType.Elem().PkgPath(), o.reflectType.Elem().Name(),
-					)
+					if g.Logger != nil {
+						g.Logger.Warnf(
+							"provided two unnamed instances of type *%s.%s",
+							o.reflectType.Elem().PkgPath(), o.reflectType.Elem().Name(),
+						)
+					}
+					continue
+					// return fmt.Errorf(
+					// 	"provided two unnamed instances of type *%s.%s",
+					// 	o.reflectType.Elem().PkgPath(), o.reflectType.Elem().Name(),
+					// )
 				}
 				g.unnamedType[o.reflectType] = true
 			}
@@ -134,7 +142,11 @@ func (g *Graph) Provide(objects ...*Object) error {
 			}
 
 			if g.named[o.Name] != nil {
-				return fmt.Errorf("provided two instances named %s", o.Name)
+				if g.Logger != nil {
+					g.Logger.Warnf("provided two instances named %s", o.Name)
+				}
+				continue
+				// return fmt.Errorf("provided two instances named %s", o.Name)
 			}
 			g.named[o.Name] = o
 		}
@@ -471,16 +483,29 @@ func (g *Graph) populateUnnamedInterface(o *Object) error {
 			}
 			if existing.reflectType.AssignableTo(fieldType) {
 				if found != nil {
-					return fmt.Errorf(
-						"found two assignable values for field %s in type %s. one type "+
-							"%s with value %v and another type %s with value %v",
-						o.reflectType.Elem().Field(i).Name,
-						o.reflectType,
-						found.reflectType,
-						found.Value,
-						existing.reflectType,
-						existing.reflectValue,
-					)
+					if g.Logger != nil {
+						g.Logger.Warnf(
+							"found two assignable values for field %s in type %s. one type "+
+								"%s with value %v and another type %s with value %v",
+							o.reflectType.Elem().Field(i).Name,
+							o.reflectType,
+							found.reflectType,
+							found.Value,
+							existing.reflectType,
+							existing.reflectValue,
+						)
+					}
+					continue
+					// return fmt.Errorf(
+					// 	"found two assignable values for field %s in type %s. one type "+
+					// 		"%s with value %v and another type %s with value %v",
+					// 	o.reflectType.Elem().Field(i).Name,
+					// 	o.reflectType,
+					// 	found.reflectType,
+					// 	found.Value,
+					// 	existing.reflectType,
+					// 	existing.reflectValue,
+					// )
 				}
 				found = existing
 				field.Set(reflect.ValueOf(existing.Value))
